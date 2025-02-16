@@ -19,23 +19,55 @@ const allowedOrigins = [
   'http://localhost:5173',
   'https://pollingapp-git-main-nirvan-jhas-projects.vercel.app',
   'https://pollingapp-nirvan-jhas-projects.vercel.app',
-  'https://pollingapp.vercel.app'
+  'https://pollingapp.vercel.app',
+  'https://pollingapp-zbpb7uqlb-nirvan-jhas-projects.vercel.app',
+  '*'
 ];
 
+// CORS middleware with detailed logging
 app.use(cors({
   origin: function(origin, callback) {
+    console.log('Request from origin:', origin);
+    
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('No origin specified, allowing request');
+      return callback(null, true);
+    }
     
     if (allowedOrigins.indexOf(origin) === -1) {
+      console.log('Origin not allowed:', origin);
       const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
       return callback(new Error(msg), false);
     }
+    
+    console.log('Origin allowed:', origin);
     return callback(null, true);
   },
-  methods: ['GET', 'POST'],
-  credentials: true
+  methods: ['GET', 'POST', 'OPTIONS'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
+
+// Add headers middleware for additional CORS support
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  
+  next();
+});
 
 app.use(express.json());
 

@@ -14,8 +14,9 @@ import {
   Switch,
   Card,
   CardBody,
+  Icon,
 } from '@chakra-ui/react';
-import { AddIcon, DeleteIcon } from '@chakra-ui/icons';
+import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import { pollsApi } from '../services/api';
 
 function CreatePoll() {
@@ -148,7 +149,7 @@ function CreatePoll() {
                     />
                   </FormControl>
                   <IconButton
-                    icon={<DeleteIcon />}
+                    icon={<Icon as={FiTrash2} />}
                     onClick={() => removeOption(index)}
                     colorScheme="red"
                     variant="ghost"
@@ -157,7 +158,7 @@ function CreatePoll() {
               ))}
               
               <Button
-                leftIcon={<AddIcon />}
+                leftIcon={<Icon as={FiPlus} />}
                 onClick={addOption}
                 size="sm"
                 colorScheme="blue"

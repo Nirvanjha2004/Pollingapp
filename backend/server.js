@@ -10,8 +10,24 @@ dotenv.config();
 const app = express();
 
 // CORS configuration
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://pollingapp-git-main-nirvan-jhas-projects.vercel.app',
+  'https://pollingapp-nirvan-jhas-projects.vercel.app',
+  'https://pollingapp.vercel.app'
+];
+
 app.use(cors({
-  origin: config.clientUrl,
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   methods: ['GET', 'POST'],
   credentials: true
 }));

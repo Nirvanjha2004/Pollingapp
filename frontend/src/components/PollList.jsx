@@ -12,89 +12,108 @@ import {
   Flex,
   useColorModeValue,
   Skeleton,
+  useToast,
 } from '@chakra-ui/react';
-import axios from 'axios';
+import { pollsApi } from '../services/api';
 
 function PollList() {
   const [polls, setPolls] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const cardBg = useColorModeValue('white', 'gray.700');
+  const toast = useToast();
 
   useEffect(() => {
     const fetchPolls = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/polls');
-        setPolls(response.data);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching polls:', error);
+        setLoading(true);
+        setError(null);
+        const data = await pollsApi.getPolls();
+        setPolls(data);
+      } catch (err) {
+        setError('Failed to fetch polls. Please try again later.');
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch polls. Please try again later.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      } finally {
         setLoading(false);
       }
     };
 
     fetchPolls();
-    const interval = setInterval(fetchPolls, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    // Set up polling for real-time updates
+    const pollInterval = setInterval(fetchPolls, 5000);
+    return () => clearInterval(pollInterval);
+  }, [toast]);
 
   if (loading) {
     return (
-      <Box>
-        <Heading mb={6}>Active Polls</Heading>
-        <VStack spacing={4} align="stretch">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} height="120px" rounded="lg" />
-          ))}
-        </VStack>
+      <VStack spacing={4} align="stretch" w="100%" maxW="800px" mx="auto" p={4}>
+        {[1, 2, 3].map((n) => (
+          <Skeleton key={n} height="100px" />
+        ))}
+      </VStack>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box textAlign="center" p={4}>
+        <Text color="red.500">{error}</Text>
       </Box>
     );
   }
 
   return (
-    <Box>
-      <Heading mb={6} color="blue.600">Active Polls</Heading>
-      <VStack spacing={4} align="stretch">
-        {polls.map((poll) => {
-          const totalVotes = poll.options.reduce((sum, option) => sum + option.votes, 0);
-          
-          return (
-            <Link key={poll._id} to={`/poll/${poll._id}`}>
-              <Card
-                bg={cardBg}
-                _hover={{
-                  transform: 'translateY(-2px)',
-                  boxShadow: 'lg',
-                }}
-                transition="all 0.2s"
-              >
-                <CardHeader pb={2}>
-                  <Heading size="md" color="blue.500">{poll.question}</Heading>
-                </CardHeader>
-                <CardBody pt={2}>
-                  <Flex gap={2} mb={2}>
-                    <Badge colorScheme="blue">
-                      {poll.options.length} options
-                    </Badge>
-                    <Badge colorScheme="green">
-                      {totalVotes} votes
-                    </Badge>
-                  </Flex>
-                  <Text color="gray.600" fontSize="sm">
-                    Click to vote or view results
-                  </Text>
-                </CardBody>
-              </Card>
-            </Link>
-          );
-        })}
-        {polls.length === 0 && (
-          <Card p={6} textAlign="center">
-            <Text color="gray.500">No active polls. Create one!</Text>
-          </Card>
-        )}
-      </VStack>
-    </Box>
+    <VStack spacing={4} align="stretch" w="100%" maxW="800px" mx="auto" p={4}>
+      <Heading mb={4}>Active Polls</Heading>
+      {polls.length === 0 ? (
+        <Card bg={cardBg}>
+          <CardBody>
+            <Text>No polls available. Create one!</Text>
+          </CardBody>
+        </Card>
+      ) : (
+        polls.map((poll) => (
+          <Link key={poll._id} to={`/poll/${poll._id}`}>
+            <Card
+              bg={cardBg}
+              _hover={{
+                transform: 'translateY(-2px)',
+                boxShadow: 'lg',
+              }}
+              transition="all 0.2s"
+            >
+              <CardHeader>
+                <Flex justify="space-between" align="center">
+                  <Heading size="md">{poll.question}</Heading>
+                  <Badge
+                    colorScheme={poll.allowMultipleAnswers ? 'purple' : 'blue'}
+                    ml={2}
+                  >
+                    {poll.allowMultipleAnswers ? 'Multiple Choice' : 'Single Choice'}
+                  </Badge>
+                </Flex>
+              </CardHeader>
+              <CardBody pt={0}>
+                <Text color="gray.500">
+                  {poll.options.length} options • {getTotalVotes(poll)} votes
+                </Text>
+              </CardBody>
+            </Card>
+          </Link>
+        ))
+      )}
+    </VStack>
   );
+}
+
+function getTotalVotes(poll) {
+  return poll.options.reduce((total, option) => total + option.votes, 0);
 }
 
 export default PollList;

@@ -3,47 +3,74 @@ import { Poll } from '../models/Poll.js';
 
 const router = express.Router();
 
+// Middleware to handle MongoDB operation timeouts
+const timeoutMiddleware = async (req, res, next) => {
+  req.setTimeout(30000, () => {
+    res.status(408).json({ message: 'Request timeout' });
+  });
+  next();
+};
+
 // Get all polls
-router.get('/', async (req, res) => {
+router.get('/', timeoutMiddleware, async (req, res) => {
   try {
-    const polls = await Poll.find().sort({ createdAt: -1 });
+    const polls = await Poll.find()
+      .sort({ createdAt: -1 })
+      .maxTimeMS(20000) // Set maximum execution time for the query
+      .lean(); // Convert to plain JavaScript objects
     res.json(polls);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching polls:', error);
+    res.status(500).json({ 
+      message: 'Error fetching polls',
+      error: error.message 
+    });
   }
 });
 
 // Get specific poll
-router.get('/:id', async (req, res) => {
+router.get('/:id', timeoutMiddleware, async (req, res) => {
   try {
-    const poll = await Poll.findById(req.params.id);
+    const poll = await Poll.findById(req.params.id)
+      .maxTimeMS(20000)
+      .lean();
     if (!poll) return res.status(404).json({ message: 'Poll not found' });
     res.json(poll);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching poll:', error);
+    res.status(500).json({ 
+      message: 'Error fetching poll',
+      error: error.message 
+    });
   }
 });
 
 // Create new poll
-router.post('/', async (req, res) => {
-  const poll = new Poll({
-    question: req.body.question,
-    options: req.body.options.map(option => ({ text: option })),
-    allowMultipleAnswers: req.body.allowMultipleAnswers || false
-  });
-
+router.post('/', timeoutMiddleware, async (req, res) => {
   try {
+    const poll = new Poll({
+      question: req.body.question,
+      options: req.body.options.map(option => ({ text: option })),
+      allowMultipleAnswers: req.body.allowMultipleAnswers || false
+    });
+
     const newPoll = await poll.save();
     res.status(201).json(newPoll);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error('Error creating poll:', error);
+    res.status(400).json({ 
+      message: 'Error creating poll',
+      error: error.message 
+    });
   }
 });
 
 // Check if user has voted
-router.get('/:id/check-vote/:userId', async (req, res) => {
+router.get('/:id/check-vote/:userId', timeoutMiddleware, async (req, res) => {
   try {
-    const poll = await Poll.findById(req.params.id);
+    const poll = await Poll.findById(req.params.id)
+      .maxTimeMS(20000)
+      .lean();
     if (!poll) return res.status(404).json({ message: 'Poll not found' });
 
     const voter = poll.voters.find(v => v.userId === req.params.userId);
@@ -56,14 +83,19 @@ router.get('/:id/check-vote/:userId', async (req, res) => {
       votedOptions: voter.votedOptions
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error checking vote:', error);
+    res.status(500).json({ 
+      message: 'Error checking vote status',
+      error: error.message 
+    });
   }
 });
 
 // Vote on a poll
-router.post('/:id/vote', async (req, res) => {
+router.post('/:id/vote', timeoutMiddleware, async (req, res) => {
   try {
-    const poll = await Poll.findById(req.params.id);
+    const poll = await Poll.findById(req.params.id)
+      .maxTimeMS(20000);
     if (!poll) return res.status(404).json({ message: 'Poll not found' });
 
     const { userId, optionIndices } = req.body;
@@ -105,7 +137,11 @@ router.post('/:id/vote', async (req, res) => {
     const updatedPoll = await poll.save();
     res.json(updatedPoll);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error recording vote:', error);
+    res.status(500).json({ 
+      message: 'Error recording vote',
+      error: error.message 
+    });
   }
 });
 

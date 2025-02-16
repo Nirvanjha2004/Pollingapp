@@ -3,9 +3,14 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { pollRoutes } from './routes/polls.js';
+
+// Load environment variables before importing config
+dotenv.config();
+
 import { config } from './config.js';
 
-dotenv.config();
+// Verify MongoDB URI
+console.log('MongoDB URI:', config.mongoUri ? 'is set' : 'is not set');
 
 const app = express();
 
@@ -39,10 +44,42 @@ app.get('/health', (req, res) => {
   res.json({ status: 'healthy' });
 });
 
-// Connect to MongoDB
-mongoose.connect(config.mongoUri)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((error) => console.error('MongoDB connection error:', error));
+// MongoDB connection options
+const mongooseOptions = {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 30000, // Timeout after 30 seconds
+  socketTimeoutMS: 45000, // Close sockets after 45 seconds
+  family: 4 // Use IPv4, skip trying IPv6
+};
+
+// Connect to MongoDB with retry logic
+const connectWithRetry = async () => {
+  try {
+    if (!config.mongoUri) {
+      throw new Error('MONGODB_URI is not set in environment variables');
+    }
+    await mongoose.connect(config.mongoUri, mongooseOptions);
+    console.log('Connected to MongoDB');
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    console.log('Retrying connection in 5 seconds...');
+    setTimeout(connectWithRetry, 5000);
+  }
+};
+
+// Initial connection
+connectWithRetry();
+
+// Handle MongoDB connection errors
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected. Attempting to reconnect...');
+  connectWithRetry();
+});
 
 // Routes
 app.use('/api/polls', pollRoutes);
